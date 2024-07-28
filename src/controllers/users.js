@@ -51,8 +51,7 @@ exports.verifyOTP = async (req, res) => {
       return res.status(400).send({ message: "This user is not found" });
     }
 
-    const data = await redisClient.hGetAll(email);
-    const OTPToken = data.OTPToken;
+    const { OTPToken } = await redisClient.hGetAll(email);
     if (!OTPToken) {
       return res.status(400).send({ message: "OTP token not found" });
     }
