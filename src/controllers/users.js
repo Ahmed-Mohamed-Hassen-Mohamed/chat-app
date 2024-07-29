@@ -1,43 +1,29 @@
 const User = require("../models/users");
 const Chat = require("../models/chats");
-const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 const redisClient = require("../db/redis");
+const sendEmail = require("../utils/sendEmail");
+const generateOTP = require("../utils/generateOTP");
 
 // Example controller functions
 
 exports.sendEmail = async (req, res) => {
   try {
     const email = req.body.email;
-    const otp = `${Math.floor(1000 + Math.random() * 9000)}`;
+    const user = await User.findOne({ email });
+    const otp = generateOTP(4);
 
-    let transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.PASS,
-      },
+    const subject = "Verification Code (valid for 1 min)";
+    const message = `Hi ${user.firstName}, \nWe received a request to verify Your Email\n${otp}`;
+    await sendEmail(email, subject, message);
+
+    const payload = { otp };
+    const OTPToken = jwt.sign(payload, process.env.SECRET_KEY, {
+      expiresIn: "1m",
     });
 
-    let mailOptions = {
-      from: process.env.EMAIL,
-      to: email,
-      subject: "Verify Your Email",
-      html: `<p>Enter ${otp} in the app to verify your email address.</p>`,
-    };
-
-    await transporter.sendMail(mailOptions, async () => {
-      try {
-        const payload = { otp };
-        const OTPToken = jwt.sign(payload, process.env.SECRET_KEY, {
-          expiresIn: "30s",
-        });
-        await redisClient.hSet(email, "OTPToken", OTPToken);
-        res.status(200).send({ message: "OTP sent and token generated" });
-      } catch (error) {
-        res.status(404).send({ message: error.message });
-      }
-    });
+    await redisClient.hSet(email, "OTPToken", OTPToken);
+    res.status(200).send({ message: "OTP sent and token generated" });
   } catch (error) {
     res.status(500).send({ message: error.message });
   }
@@ -48,7 +34,7 @@ exports.verifyOTP = async (req, res) => {
     const { email, otp } = req.body;
     const _user = await User.findOne({ email });
     if (!_user) {
-      return res.status(400).send({ message: "This user is not found" });
+      return res.status(404).send({ message: "This user is not found" });
     }
 
     const { OTPToken } = await redisClient.hGetAll(email);
@@ -84,38 +70,25 @@ exports.verifyOTP = async (req, res) => {
 exports.createUser = async (req, res) => {
   try {
     const email = req.body.email;
-    const otp = `${Math.floor(1000 + Math.random() * 9000)}`;
-
-    let transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.PASS,
-      },
-    });
-
-    let mailOptions = {
-      from: process.env.EMAIL,
-      to: email,
-      subject: "Verify Your Email",
-      html: `<p>Enter ${otp} in the app to verify your email address.</p>`,
-    };
-
-    let _user = await User.findOne({ email });
-    if (_user && _user.flag) {
+    let user = await User.findOne({ email });
+    if (user && user.flag) {
       return res
         .status(200)
         .send({ message: "There is an account for this email." });
     }
 
-    await transporter.sendMail(mailOptions);
+    const otp = generateOTP(4);
+
+    const subject = "Verification Code (valid for 1 min)";
+    const message = `Hi ${user.firstName}, \nWe received a request to verify Your Email\n${OTP}`;
+    await sendEmail(email, subject, message);
 
     const payload = { otp };
     const OTPToken = jwt.sign(payload, process.env.SECRET_KEY, {
       expiresIn: "30s",
     });
 
-    if (_user) {
+    if (user) {
       await redisClient.hSet(email, "OTPToken", OTPToken);
     } else {
       await redisClient.hSet(email, "OTPToken", OTPToken);
