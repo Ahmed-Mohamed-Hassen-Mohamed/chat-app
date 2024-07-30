@@ -4,10 +4,11 @@ const jwt = require("jsonwebtoken");
 const redisClient = require("../db/redis");
 const sendEmail = require("../utils/sendEmail");
 const generateOTP = require("../utils/generateOTP");
+const ApiError = require("../utils/ApiError");
 
 // Example controller functions
 
-exports.sendEmail = async (req, res) => {
+exports.sendEmail = async (req, res, next) => {
   try {
     const email = req.body.email;
     const user = await User.findOne({ email });
@@ -25,11 +26,11 @@ exports.sendEmail = async (req, res) => {
     await redisClient.hSet(email, "OTPToken", OTPToken);
     res.status(200).send({ message: "OTP sent and token generated" });
   } catch (error) {
-    res.status(500).send({ message: error.message });
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.verifyOTP = async (req, res) => {
+exports.verifyOTP = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
     const _user = await User.findOne({ email });
@@ -63,11 +64,11 @@ exports.verifyOTP = async (req, res) => {
     const token = user.generateToken();
     res.status(200).send({ token });
   } catch (err) {
-    res.status(400).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.createUser = async (req, res) => {
+exports.createUser = async (req, res, next) => {
   try {
     const email = req.body.email;
     let user = await User.findOne({ email });
@@ -80,7 +81,7 @@ exports.createUser = async (req, res) => {
     const otp = generateOTP(4);
 
     const subject = "Verification Code (valid for 1 min)";
-    const message = `Hi ${user.firstName}, \nWe received a request to verify Your Email\n${OTP}`;
+    const message = `Hi ${user.firstName}, \nWe received a request to verify Your Email\n${otp}`;
     await sendEmail(email, subject, message);
 
     const payload = { otp };
@@ -98,22 +99,22 @@ exports.createUser = async (req, res) => {
 
     res.status(200).send({ message: "OTP sent and token generated" });
   } catch (error) {
-    res.status(400).send({ message: error.message });
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.uploadPhoto = async (req, res) => {
+exports.uploadPhoto = async (req, res, next) => {
   try {
     const user = req.user;
     user.profile = req.file.buffer;
     await user.save();
     res.status(200).send({ user });
   } catch (err) {
-    res.status(400).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
     const user = await User.findByCredentials(
       req.body.email,
@@ -125,11 +126,11 @@ exports.login = async (req, res) => {
     const token = user.generateToken();
     res.status(200).send({ user, token });
   } catch (err) {
-    res.status(400).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.getUsers = async (req, res) => {
+exports.getUsers = async (req, res, next) => {
   try {
     const users = await User.find({});
     if (!users.length) {
@@ -139,11 +140,11 @@ exports.getUsers = async (req, res) => {
     }
     res.status(200).send(users);
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.getUsersByEmail = async (req, res) => {
+exports.getUsersByEmail = async (req, res, next) => {
   try {
     const email = req.body.email;
     const chats = await Chat.find({
@@ -169,7 +170,7 @@ exports.getUsersByEmail = async (req, res) => {
     }
     res.status(200).send(users);
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
@@ -177,7 +178,7 @@ exports.getProfile = async (req, res) => {
   res.status(200).send(req.user);
 };
 
-exports.getUserById = async (req, res) => {
+exports.getUserById = async (req, res, next) => {
   try {
     const _id = req.params.id;
     const user = await User.findById(_id);
@@ -188,11 +189,11 @@ exports.getUserById = async (req, res) => {
     }
     res.status(200).send(user);
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.updateUser = async (req, res) => {
+exports.updateUser = async (req, res, next) => {
   const updates = Object.keys(req.body);
   try {
     const user = req.user;
@@ -210,11 +211,11 @@ exports.updateUser = async (req, res) => {
     await user.save();
     res.status(200).send(user);
   } catch (err) {
-    res.status(400).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.updatePassword = async (req, res) => {
+exports.updatePassword = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
@@ -227,16 +228,16 @@ exports.updatePassword = async (req, res) => {
     await user.save();
     res.status(200).send(user);
   } catch (err) {
-    res.status(400).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.deleteUser = async (req, res) => {
+exports.deleteUser = async (req, res, next) => {
   try {
     const user = req.user;
     const _user = user.deleteOne();
     res.status(200).send("User has been deleted");
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
