@@ -1,9 +1,10 @@
 const Chat = require("../models/chats");
 const Message = require("../models/messages");
+const ApiError = require("../utils/ApiError");
 
 // Example controller functions
 
-exports.getChats = async (req, res) => {
+exports.getChats = async (req, res, next) => {
   try {
     // let chats = [];
     const chats = await Chat.find({
@@ -14,11 +15,11 @@ exports.getChats = async (req, res) => {
       .sort({ _id: -1 });
     res.status(200).send(chats);
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.getChatById = async (req, res) => {
+exports.getChatById = async (req, res, next) => {
   try {
     const _id = req.params.id;
     const chat = await Chat.findById(_id)
@@ -26,6 +27,6 @@ exports.getChatById = async (req, res) => {
       .populate("user2Id");
     res.status(200).send(chat);
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
