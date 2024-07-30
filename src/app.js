@@ -1,12 +1,14 @@
 const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-
 const app = express();
 const httpServer = require("http").createServer(app);
 const io = require("socket.io")(httpServer, {
   cors: { origin: "*" },
 });
+
+const { globalError } = require("./config/globalError");
+const ApiError = require("./utils/ApiError");
+const cors = require("cors");
+const helmet = require("helmet");
 
 require("dotenv").config();
 const port = process.env.PORT;
@@ -18,7 +20,7 @@ app.use(helmet());
 const { socketEvents } = require("./socket");
 socketEvents(io);
 
-const {sharedSocket} = require("./controllers/messages");
+const { sharedSocket } = require("./controllers/messages");
 sharedSocket(io);
 
 const usersRouter = require("./routers/users");
@@ -34,7 +36,9 @@ app.get("/", (req, res) => {
 });
 
 app.all("*", (req, res, next) => {
-  next(new Error(`Con't find this route: ${req.originalUrl}`));
+  next(new ApiError(`Con't find this route: ${req.originalUrl}`));
 });
+
+app.use(globalError);
 
 httpServer.listen(port, () => console.log(`listening on port ${port}`));
