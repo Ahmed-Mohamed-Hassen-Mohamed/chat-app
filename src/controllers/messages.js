@@ -1,5 +1,6 @@
 const Message = require("../models/messages");
 const { handleSeen } = require("../socket");
+const ApiError = require("../utils/ApiError");
 
 // Example controller functions
 
@@ -8,7 +9,7 @@ exports.sharedSocket = (io) => {
   IO = io;
 };
 
-exports.getMessages = async (req, res) => {
+exports.getMessages = async (req, res, next) => {
   try {
     const chatId = req.params.id;
     const message = await Message.findOne({ chatId }).sort({ _id: -1 });
@@ -37,11 +38,11 @@ exports.getMessages = async (req, res) => {
     }
     res.status(200).send(messages);
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.getLastMessages = async (req, res) => {
+exports.getLastMessages = async (req, res, next) => {
   try {
     let chats = [];
     const messages = await Message.aggregate([
@@ -80,11 +81,11 @@ exports.getLastMessages = async (req, res) => {
     }
     res.status(200).send(chats);
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
 
-exports.updateSeen = async (req, res) => {
+exports.updateSeen = async (req, res, next) => {
   try {
     const chatId = req.params.id;
     const messages = await Message.updateMany({ chatId }, { isRead: true });
@@ -100,6 +101,6 @@ exports.updateSeen = async (req, res) => {
     }
     res.status(200).send({ message: "ok" });
   } catch (err) {
-    res.status(500).send(err);
+    next(new ApiError(error.message, 500));
   }
 };
